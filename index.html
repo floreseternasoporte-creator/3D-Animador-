@@ -138,7 +138,24 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 #ai-inp:focus{border-color:var(--accent)}
 #ai-send{background:var(--accent);color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px}
 #ai-send:hover{opacity:.85}
-#ai-toggle{position:fixed;bottom:170px;right:6px;width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:101;box-shadow:0 4px 16px rgba(61,155,255,.4);pointer-events:auto;font-size:18px;border:none;color:#fff}
+#ai-toggle{position:fixed;bottom:215px;right:6px;width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:101;box-shadow:0 4px 16px rgba(61,155,255,.4);pointer-events:auto;font-size:18px;border:none;color:#fff}
+#script-toggle{position:fixed;bottom:168px;right:6px;width:42px;height:42px;background:linear-gradient(135deg,#1a2a0a,var(--green));border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:101;box-shadow:0 4px 16px rgba(93,191,93,.35);pointer-events:auto;font-size:18px;border:none;color:#fff}
+/* SCRIPT EDITOR */
+#script-panel{position:fixed;bottom:165px;right:55px;width:560px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.75);display:none;z-index:100;flex-direction:column;overflow:hidden;pointer-events:auto;resize:both;min-width:340px;min-height:260px}
+#script-panel.open{display:flex}
+#script-hdr{background:linear-gradient(135deg,#0a1a0a,#0d2b0d);padding:9px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+#script-tabs{display:flex;gap:2px;padding:4px 8px;background:var(--header);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.stab{font-size:10px;padding:2px 10px;border-radius:4px;cursor:pointer;color:var(--dim);border:1px solid transparent;white-space:nowrap}
+.stab:hover{color:var(--text);background:var(--hover)}.stab.on{background:rgba(93,191,93,.15);border-color:var(--green);color:var(--green)}
+#script-body{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+#script-ed{flex:1;width:100%;background:#0a0f0a;border:none;outline:none;color:#c8ffb0;font-family:'JetBrains Mono',monospace;font-size:11px;padding:12px 12px 12px 46px;resize:none;line-height:1.6;tab-size:2;min-height:180px}
+#script-ed::selection{background:rgba(93,191,93,.3)}
+#script-bar{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--header);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+#script-status{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scbtn{font-size:10px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--dim)}
+.scbtn:hover{border-color:var(--green);color:var(--green)}.scbtn.run{background:rgba(93,191,93,.15);border-color:var(--green);color:var(--green);font-weight:600}
+.scbtn.run:hover{background:rgba(93,191,93,.3)}.scbtn.danger{border-color:var(--red);color:var(--red)}.scbtn.danger:hover{background:rgba(224,106,106,.1)}
+#script-ln{position:absolute;top:0;left:0;bottom:0;width:36px;background:#06100a;border-right:1px solid #1a2a1a;padding:12px 0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#2a4a2a;text-align:right;pointer-events:none;overflow:hidden;padding-right:4px;user-select:none}
 /* OUTLINER */
 .olrow{display:flex;align-items:center;height:22px;padding:0 6px;font-size:10px;color:var(--dim);border-bottom:1px solid rgba(46,46,46,.5);cursor:pointer;gap:4px}
 .olrow:hover{background:var(--hover);color:var(--text)}.olrow.on{background:rgba(61,155,255,.1);color:var(--accent)}
@@ -520,6 +537,50 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
   <div id="rprogfill"><div id="rprogbar"></div></div>
   <button onclick="window._cancelRender=true" style="margin-top:10px;font-size:10px;color:var(--red);background:none;border:1px solid var(--red);border-radius:3px;padding:2px 10px;cursor:pointer">Cancelar</button>
 </div>
+
+<!-- SCRIPT EDITOR -->
+<button id="script-toggle" title="Editor de Scripts (JS)">⌨️</button>
+<div id="script-panel">
+  <div id="script-hdr">
+    <span style="font-size:16px">⌨️</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#c8ffb0">Editor de Scripts</div>
+      <div style="font-size:9px;color:#5dbf5d">JavaScript · window._api · Three.js</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span id="script-mode-lbl" style="font-size:9px;color:#5dbf5d;font-family:'JetBrains Mono',monospace">JS</span>
+      <button onclick="document.getElementById('script-panel').classList.remove('open')" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px">✕</button>
+    </div>
+  </div>
+  <div id="script-tabs">
+    <div class="stab on" data-sample="blank">Vacío</div>
+    <div class="stab" data-sample="orbit">Órbita</div>
+    <div class="stab" data-sample="bounce">Rebote</div>
+    <div class="stab" data-sample="wave">Ola Esferas</div>
+    <div class="stab" data-sample="fireworks">Fuegos Art.</div>
+    <div class="stab" data-sample="explosion">Explosión</div>
+    <div class="stab" data-sample="typewriter">Typewriter</div>
+    <div class="stab" data-sample="camera">Cámara Path</div>
+  </div>
+  <div id="script-body">
+    <div id="script-ln"></div>
+    <textarea id="script-ed" spellcheck="false" placeholder="// Escribe tu script aquí...
+// Tienes acceso a window._api y a la escena completa
+// Ejemplo:
+window._api.add('sphere');
+window._api.setColor('#ff6600');
+window._api.animateProp('posY', 0, 60, 0, 5);
+"></textarea>
+  </div>
+  <div id="script-bar">
+    <span id="script-status">Listo · Ln 1 Col 1</span>
+    <button class="scbtn run" id="script-run">▶ Ejecutar</button>
+    <button class="scbtn" id="script-savejson">💾 Exportar JSON</button>
+    <button class="scbtn" id="script-loadjson">📂 Importar JSON</button>
+    <button class="scbtn danger" id="script-clear">✕ Limpiar</button>
+  </div>
+</div>
+<input type="file" id="file-script-json" accept=".json,.js" style="display:none">
 
 <!-- AI ASSISTANT -->
 <button id="ai-toggle" title="Asistente IA (Gratis)">🤖</button>
@@ -1666,103 +1727,389 @@ function notify(msg) {
 }
 
 // ==================== AI ASSISTANT ====================
+function buildSystemPrompt(sceneCtx) {
+  return `Eres un asistente experto en 3D para VFX Studio Pro (Three.js/WebGL). Genera código JavaScript para modificar la escena 3D según las instrucciones en español.
+
+FUNCIONES DISPONIBLES:
+- window._api.add(type) — tipos: 'box','sphere','cylinder','cone','torus','torusknot','plane','icosphere','ring','particles','pointlight','spotlight','dirlight'
+- window._api.selectByName(name) — selecciona por nombre (parcial)
+- window._api.setPos(x,y,z) / setRot(xDeg,yDeg,zDeg) / setScale(x,y,z)
+- window._api.setColor('#hex') / setRoughness(0-1) / setMetalness(0-1)
+- window._api.setEmissive('#hex', intensity) / setOpacity(0-1)
+- window._api.addKF(frame) — keyframe en frame específico
+- window._api.setInterp(type) — 'linear','bezier','elastic','bounce','back'
+- window._api.animateProp(prop, fr1, fr2, val1, val2) — prop: 'posX','posY','posZ','rotX','rotY','rotZ','sclX','sclY','sclZ'
+- window._api.setBloom(true/false, strength, threshold)
+- window._api.setBackground('solid'|'gradient'|'sky'|'skyblue')
+- window._api.applyGrade('warm'|'cool'|'cinematic'|'neon'|'horror'|'none')
+- window._api.addConstraint('lookat'|'bob'|'spin')
+- window._api.setName(name) / notify(msg) / play() / pause() / setFrame(n) / setFPS(n) / setMaxFrames(n)
+
+ESCENA ACTUAL: ${sceneCtx}
+
+RESPONDE SOLO con este JSON (sin texto extra, sin markdown):
+{"explicacion":"descripción breve de lo que harás","codigo":"// código JS aquí\\nwindow._api.xxx();"}
+
+REGLAS: el código debe ser ejecutable directamente. Para animaciones usa varios animateProp consecutivos. Para efectos usa bloom+emissive+partículas.`;
+}
+
+async function callPollinationsPost(msgs_arr) {
+  const r = await fetch('https://text.pollinations.ai/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: msgs_arr, model: 'openai', jsonMode: true, seed: Math.floor(Math.random()*9999) })
+  });
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  return await r.text();
+}
+
+async function callPollinationsGet(prompt) {
+  const encoded = encodeURIComponent(prompt);
+  const r = await fetch(`https://text.pollinations.ai/${encoded}?model=openai&json=true&seed=${Math.floor(Math.random()*9999)}`);
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  return await r.text();
+}
+
+async function callPollinationsMistral(msgs_arr) {
+  const r = await fetch('https://text.pollinations.ai/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: msgs_arr, model: 'mistral', jsonMode: true, seed: Math.floor(Math.random()*9999) })
+  });
+  if (!r.ok) throw new Error('HTTP '+r.status);
+  return await r.text();
+}
+
+function parseAIResponse(text) {
+  if (!text || !text.trim()) throw new Error('Respuesta vacía');
+  // Strip markdown code fences if present
+  let clean = text.trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'').trim();
+  // Find first { ... } block
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start !== -1 && end !== -1) clean = clean.slice(start, end+1);
+  return JSON.parse(clean);
+}
+
 async function sendToAI(userMsg) {
   const msgs=$('ai-msgs');
-  // User bubble
   const ub=document.createElement('div'); ub.className='ai-msg usr'; ub.textContent=userMsg; msgs.appendChild(ub);
-
-  // Loading bubble
-  const lb=document.createElement('div'); lb.className='ai-msg bot loading'; lb.textContent='⏳ Pensando...'; msgs.appendChild(lb);
+  const lb=document.createElement('div'); lb.className='ai-msg bot loading'; lb.innerHTML='<span class="ai-spinner">⏳</span> Conectando con IA...'; msgs.appendChild(lb);
   msgs.scrollTop=msgs.scrollHeight;
 
-  // Build scene context
-  const sceneCtx=`Objetos en escena: ${objs.map(o=>`{nombre:"${o.name}",pos:[${o.position.x.toFixed(1)},${o.position.y.toFixed(1)},${o.position.z.toFixed(1)}],tipo:"${o.geometry?.type||o.userData.isPt?'partículas':'sprite'}"}`).join(', ')||'(vacía)'}. Frame actual: ${curFr}/${MAX_FR}.`;
+  const sceneCtx = objs.length
+    ? objs.map(o=>`"${o.name}"@(${o.position.x.toFixed(1)},${o.position.y.toFixed(1)},${o.position.z.toFixed(1)})`).join(', ')
+    : '(escena vacía)';
+  const sysPr = buildSystemPrompt(sceneCtx);
+  const msgs_arr = [{ role:'system', content:sysPr }, { role:'user', content:userMsg }];
+  const fallbackPrompt = sysPr + '\n\nUSER: ' + userMsg;
 
-  const systemPrompt = `Eres un asistente experto en 3D para VFX Studio Pro, una plataforma WebGL basada en Three.js. Tu tarea es interpretar instrucciones en español y generar código JavaScript para modificar la escena 3D.
+  let rawText = null;
+  const attempts = [
+    { name:'POST openai',   fn:()=>callPollinationsPost(msgs_arr) },
+    { name:'POST mistral',  fn:()=>callPollinationsMistral(msgs_arr) },
+    { name:'GET openai',    fn:()=>callPollinationsGet(fallbackPrompt) },
+  ];
 
-FUNCIONES DISPONIBLES (úsalas directamente):
-- window._api.add(type) — añade objeto: 'box','sphere','cylinder','cone','torus','torusknot','plane','icosphere','ring','particles','pointlight','spotlight','dirlight'
-- window._api.selectByName(name) — selecciona objeto por nombre
-- window._api.setPos(x,y,z) — mueve objeto seleccionado
-- window._api.setRot(xDeg,yDeg,zDeg) — rota en grados
-- window._api.setScale(x,y,z) — escala
-- window._api.setColor(hexColor) — cambia color del material seleccionado
-- window._api.setRoughness(v) — rugosidad 0-1
-- window._api.setMetalness(v) — metalidad 0-1  
-- window._api.setEmissive(hexColor, intensity) — color emisivo + intensidad
-- window._api.setOpacity(v) — opacidad 0-1
-- window._api.addKF(frame) — añade keyframe en frame dado
-- window._api.setInterp(type) — 'linear','bezier','elastic','bounce','bounce','back'
-- window._api.animateProp(propName, fromFrame, toFrame, startVal, endVal) — anima propiedad simple (posX,posY,posZ,rotX,rotY,rotZ,sclX,sclY,sclZ)
-- window._api.setBloom(enabled, strength, threshold) — bloom post-procesado
-- window._api.setBackground(type) — 'solid','gradient','sky','skyblue'
-- window._api.applyGrade(preset) — 'warm','cool','cinematic','neon','horror','none'
-- window._api.addConstraint(type) — 'lookat','bob','spin'
-- window._api.setName(name) — renombra objeto seleccionado
-- window._api.notify(msg) — muestra notificación
-- window._api.play() — reproduce animación
-- window._api.pause() — pausa
-- window._api.setFrame(n) — va a frame n
-- window._api.setFPS(n) — cambia FPS
-- window._api.setMaxFrames(n) — cambia total de frames
-
-CONTEXTO ACTUAL: ${sceneCtx}
-
-RESPONDE en este formato JSON exacto:
-{
-  "explicacion": "Lo que harás en lenguaje natural amigable",
-  "codigo": "// código JS que usa window._api.xxx()\n// Una línea por acción\n// Si es una animación, usa animateProp o addKF con un loop"
-}
-
-IMPORTANTE: Sé creativo, el código debe funcionar. Para animaciones, crea múltiples keyframes. Para efectos especiales, usa partículas + bloom + emissive.`;
-
-  try {
-    const resp = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg }
-        ],
-        model: 'openai',
-        jsonMode: true,
-        seed: Math.floor(Math.random()*9999)
-      })
-    });
-
-    const text = await resp.text();
-    let parsed;
-    try { parsed = JSON.parse(text); } catch { parsed = { explicacion: text, codigo: '' }; }
-
-    const explain = parsed.explicacion || parsed.explanation || '✓ Listo';
-    const code = parsed.codigo || parsed.code || '';
-
-    // Replace loading bubble
-    lb.className='ai-msg bot'; lb.innerHTML='';
-    const expDiv=document.createElement('div'); expDiv.textContent=explain; lb.appendChild(expDiv);
-
-    if (code.trim()) {
-      const pre=document.createElement('div'); pre.className='ai-code'; pre.textContent=code; lb.appendChild(pre);
-      const btn=document.createElement('button'); btn.className='ai-exec-btn'; btn.textContent='▶ Ejecutar código';
-      btn.onclick=()=>{ execAICode(code); btn.textContent='✓ Ejecutado!'; btn.style.color='var(--green)'; };
-      lb.appendChild(btn);
+  for (const attempt of attempts) {
+    try {
+      lb.innerHTML=`<span style="color:var(--dim);font-style:italic">⏳ Intentando ${attempt.name}...</span>`;
+      rawText = await Promise.race([
+        attempt.fn(),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout')),18000))
+      ]);
+      if (rawText && rawText.trim()) break;
+    } catch(e) {
+      console.warn('[IA] '+attempt.name+' falló:', e.message);
+      rawText = null;
     }
-  } catch (err) {
-    lb.className='ai-msg bot'; lb.textContent='⚠ Error de conexión. Verifica internet: '+err.message;
+  }
+
+  lb.className='ai-msg bot'; lb.innerHTML='';
+
+  if (!rawText) {
+    lb.innerHTML='<span style="color:var(--red)">⚠ Sin conexión con la IA. Revisa tu internet e inténtalo de nuevo.</span><br><span style="font-size:9px;color:var(--dim)">Mientras tanto puedes usar el Editor de Scripts ⌨️</span>';
+    msgs.scrollTop=msgs.scrollHeight; return;
+  }
+
+  let parsed;
+  try { parsed = parseAIResponse(rawText); }
+  catch(e) {
+    // If can't parse JSON, show raw as explanation
+    parsed = { explicacion: rawText.slice(0,300), codigo: '' };
+  }
+
+  const explain = parsed.explicacion || parsed.explanation || parsed.message || '✓ Listo';
+  const code    = parsed.codigo     || parsed.code      || parsed.script  || '';
+
+  const expDiv=document.createElement('div'); expDiv.textContent=explain; lb.appendChild(expDiv);
+
+  if (code.trim()) {
+    const pre=document.createElement('div'); pre.className='ai-code'; pre.textContent=code; lb.appendChild(pre);
+
+    const btnRow=document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='6px'; btnRow.style.marginTop='5px';
+
+    const btnRun=document.createElement('button'); btnRun.className='ai-exec-btn'; btnRun.textContent='▶ Ejecutar';
+    btnRun.onclick=()=>{ execCode(code); btnRun.textContent='✓ Ejecutado!'; btnRun.style.color='var(--green)'; };
+
+    const btnEdit=document.createElement('button'); btnEdit.className='ai-exec-btn'; btnEdit.style.borderColor='var(--accent)'; btnEdit.style.color='var(--accent)'; btnEdit.textContent='⌨ Editar';
+    btnEdit.onclick=()=>{ $('script-ed').value=code; $('script-panel').classList.add('open'); updateLineNumbers(); notify('📋 Código copiado al editor'); };
+
+    btnRow.appendChild(btnRun); btnRow.appendChild(btnEdit); lb.appendChild(btnRow);
   }
   msgs.scrollTop=msgs.scrollHeight;
 }
 
-function execAICode(code) {
+function execCode(code) {
   try {
-    const fn = new Function(code);
-    fn();
-    notify('🤖 IA ejecutó código');
+    const fn = new Function('THREE', 'scene', 'camera', 'objs', 'sel', code);
+    fn(window._THREE, window._scene, window._camera, window._objs, window._sel);
+    notify('✓ Script ejecutado');
+    return true;
   } catch(e) {
-    notify('⚠ Error en código IA: '+e.message);
-    console.error(e);
+    notify('⚠ Error: '+e.message);
+    console.error('[Script]', e);
+    return false;
   }
+}
+
+// ==================== SCRIPT EDITOR ====================
+const SAMPLES = {
+  blank: `// Script vacío — escribe tu código aquí
+// Acceso a funciones: window._api.xxx()
+// Acceso a Three.js: window._THREE, window._scene, window._camera
+
+`,
+  orbit: `// Animación de órbita completa (360°)
+// El objeto seleccionado girará 360° en 120 frames
+window._api.setInterp('linear');
+window._api.animateProp('rotY', 0, 120, 0, 360);
+window._api.setMaxFrames(120);
+window._api.play();
+window._api.notify('🔄 Órbita configurada');`,
+
+  bounce: `// Rebote con easing elástico
+const api = window._api;
+api.add('sphere');
+api.setColor('#ff6600');
+api.setEmissive('#ff3300', 0.3);
+api.setInterp('bounce');
+// Baja
+api.animateProp('posY', 0, 30, 5, 0.2);
+// Sube
+api.animateProp('posY', 30, 60, 0.2, 5);
+// Baja de nuevo
+api.animateProp('posY', 60, 90, 5, 0.2);
+// Sube final
+api.animateProp('posY', 90, 120, 0.2, 5);
+api.setMaxFrames(120);
+api.play();`,
+
+  wave: `// Ola de esferas en loop
+const api = window._api;
+const colors = ['#ff4444','#ff8844','#ffff44','#44ff88','#4488ff','#aa44ff'];
+for (let i = 0; i < 6; i++) {
+  api.add('sphere');
+  api.setPos(i * 2.5 - 6, 2, 0);
+  api.setScale(0.8, 0.8, 0.8);
+  api.setColor(colors[i]);
+  api.setEmissive(colors[i], 0.4);
+  const offset = i * 10;
+  api.setInterp('bezier');
+  api.animateProp('posY', offset, offset + 30, 2, 5);
+  api.animateProp('posY', offset + 30, offset + 60, 5, 2);
+}
+api.setBloom(true, 1.2, 0.4);
+api.setMaxFrames(120);
+api.play();`,
+
+  fireworks: `// Fuegos artificiales (partículas + bloom)
+const api = window._api;
+api.setBackground('sky');
+api.setBloom(true, 2, 0.3);
+api.applyGrade('neon');
+const colors = ['#ff4444','#44ffff','#ffff44','#ff44ff','#44ff44'];
+for (let i = 0; i < 5; i++) {
+  api.add('particles');
+  api.setPos(
+    (Math.random() - 0.5) * 12,
+    3 + Math.random() * 6,
+    (Math.random() - 0.5) * 8
+  );
+  api.setColor(colors[i % colors.length]);
+}
+api.notify('🎆 ¡Fuegos artificiales!');`,
+
+  explosion: `// Efecto de explosión animada
+const api = window._api;
+api.add('sphere');
+api.setColor('#ff6600');
+api.setEmissive('#ff2200', 2);
+api.setInterp('elastic');
+// Expansión explosiva
+api.animateProp('sclX', 0, 15, 0.1, 6);
+api.animateProp('sclY', 0, 15, 0.1, 6);
+api.animateProp('sclZ', 0, 15, 0.1, 6);
+// Desvanece escala
+api.animateProp('sclX', 15, 40, 6, 0);
+api.animateProp('sclY', 15, 40, 6, 0);
+api.animateProp('sclZ', 15, 40, 6, 0);
+// Partículas
+api.add('particles');
+api.setColor('#ffaa00');
+api.setPos(0, 2, 0);
+api.setBloom(true, 2.5, 0.2);
+api.applyGrade('warm');
+api.setMaxFrames(60);
+api.setFrame(0);
+api.play();`,
+
+  typewriter: `// Texto animado con Sprite (typewriter visual)
+const api = window._api;
+api.add('text');
+api.setPos(0, 6, 0);
+api.setInterp('constant');
+// Aparece en frame 10
+api.animateProp('sclX', 0, 10, 0, 0);
+api.animateProp('sclX', 10, 11, 0, 8);
+api.animateProp('sclY', 0, 10, 0, 0);
+api.animateProp('sclY', 10, 11, 0, 2);
+// Pulso lento
+api.setInterp('bezier');
+api.animateProp('posY', 10, 70, 6, 6.5);
+api.animateProp('posY', 70, 130, 6.5, 6);
+api.setEmissive('#ffffff', 0.5);
+api.setMaxFrames(130);
+api.play();`,
+
+  camera: `// Recorrido de cámara usando restricción bob
+const api = window._api;
+// Añadir objetivo central
+api.add('torus');
+api.setColor('#6affee');
+api.setEmissive('#6affee', 0.8);
+api.setMetalness(0.9);
+api.setRoughness(0.1);
+api.addConstraint('spin');
+// Fondo y bloom
+api.setBackground('sky');
+api.setBloom(true, 1.5, 0.4);
+api.applyGrade('cool');
+// Animar rotación del torus
+api.selectByName('Torus');
+api.animateProp('rotX', 0, 120, 0, 360);
+api.animateProp('rotZ', 0, 120, 0, 180);
+api.setMaxFrames(120);
+api.play();
+api.notify('🎥 Escena cinematográfica lista');`
+};
+
+function updateLineNumbers() {
+  const ed=$('script-ed'), ln=$('script-ln');
+  if(!ed||!ln)return;
+  const lines=ed.value.split('\n').length;
+  ln.innerHTML=Array.from({length:lines},(_,i)=>`<div>${i+1}</div>`).join('');
+  // Sync scroll
+  ln.scrollTop=ed.scrollTop;
+}
+
+function setupScriptEditor() {
+  const ed=$('script-ed');
+  if(!ed)return;
+
+  // Tab key support
+  ed.addEventListener('keydown',e=>{
+    if(e.key==='Tab'){
+      e.preventDefault();
+      const s=ed.selectionStart,end=ed.selectionEnd;
+      ed.value=ed.value.slice(0,s)+'  '+ed.value.slice(end);
+      ed.selectionStart=ed.selectionEnd=s+2;
+      updateLineNumbers();
+    }
+    // Ctrl+Enter to run
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){
+      e.preventDefault();
+      runScript();
+    }
+  });
+
+  ed.addEventListener('input',updateLineNumbers);
+  ed.addEventListener('scroll',()=>{ $('script-ln').scrollTop=ed.scrollTop; });
+  ed.addEventListener('click',updateScriptStatus);
+  ed.addEventListener('keyup',updateScriptStatus);
+
+  // Sample tabs
+  document.querySelectorAll('.stab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      document.querySelectorAll('.stab').forEach(x=>x.classList.remove('on'));
+      t.classList.add('on');
+      if(t.dataset.sample==='blank'){ed.value='';updateLineNumbers();return;}
+      ed.value=SAMPLES[t.dataset.sample]||'';
+      updateLineNumbers();
+      updateScriptStatus();
+    });
+  });
+
+  $('script-toggle').addEventListener('click',()=>{
+    $('script-panel').classList.toggle('open');
+    if($('script-panel').classList.contains('open'))updateLineNumbers();
+  });
+
+  $('script-run').addEventListener('click',runScript);
+
+  $('script-clear').addEventListener('click',()=>{
+    if(!ed.value.trim()||confirm('¿Limpiar editor?')){ed.value='';updateLineNumbers();$('script-status').textContent='Limpio · Ln 1 Col 1';}
+  });
+
+  $('script-savejson').addEventListener('click',()=>{
+    const payload={ name:'Mi Script VFX', version:1, created:new Date().toISOString(), code:ed.value };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='script_vfx.json';a.click();
+    notify('💾 Script exportado como JSON');
+  });
+
+  $('script-loadjson').addEventListener('click',()=>$('file-script-json').click());
+
+  $('file-script-json').addEventListener('change',e=>{
+    const f=e.target.files[0];if(!f)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try {
+        let code='';
+        if(f.name.endsWith('.json')){
+          const parsed=JSON.parse(ev.target.result);
+          code=parsed.code||parsed.script||JSON.stringify(parsed,null,2);
+        } else {
+          code=ev.target.result;
+        }
+        ed.value=code;
+        updateLineNumbers();
+        notify('📂 Script importado');
+      } catch(err){ notify('⚠ Error al leer archivo: '+err.message); }
+    };
+    reader.readAsText(f);
+    $('file-script-json').value='';
+  });
+
+  updateLineNumbers();
+}
+
+function updateScriptStatus() {
+  const ed=$('script-ed');
+  const txt=ed.value;
+  const pos=ed.selectionStart;
+  const lines=txt.slice(0,pos).split('\n');
+  const ln=lines.length, col=lines[lines.length-1].length+1;
+  const total=txt.split('\n').length;
+  $('script-status').textContent=`Listo · Ln ${ln}/${total} · Col ${col}`;
+}
+
+function runScript() {
+  const code=$('script-ed').value.trim();
+  if(!code){ notify('⚠ Editor vacío'); return; }
+  $('script-status').textContent='Ejecutando...';
+  const ok=execCode(code);
+  $('script-status').textContent=ok?'✓ Ejecutado correctamente':'⚠ Error — ver consola';
 }
 
 // ==================== AI API ====================
@@ -1997,8 +2344,19 @@ function switchRP(pid) {
   document.querySelectorAll('.pg').forEach(p=>p.classList.toggle('on',p.id===pid));
 }
 
+// Expose Three.js internals for advanced scripting
+function exposeGlobals() {
+  window._THREE  = THREE;
+  window._scene  = scene;
+  window._camera = camera;
+  window._objs   = objs;
+  Object.defineProperty(window, '_sel', { get:()=>sel, configurable:true });
+}
+
 // Start
 init();
+exposeGlobals();
+setupScriptEditor();
 </script>
 </body>
 </html>
