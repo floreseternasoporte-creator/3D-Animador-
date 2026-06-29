@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Animador 3D - Blender Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-base: #1a1a1a;
+            --bg-panel: #242424;
+            --bg-header: #1e1e1e;
+            --bg-hover: #2e2e2e;
+            --border: #383838;
+            --accent: #3d9bff;
+            --accent2: #ff7e3d;
+            --yellow: #e8c06a;
+            --green: #6abf6a;
+            --red: #e06a6a;
+            --text: #cccccc;
+            --text-dim: #888888;
+            --text-bright: #ffffff;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; background: var(--bg-base); font-family: 'Outfit', sans-serif; color: var(--text); touch-action: none; user-select: none; }
+        
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; }
+        .interactive { pointer-events: auto; }
+        #file-input { display: none; }
+
+        /* === HEADER BAR === */
+        #header-bar {
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border);
+            height: 36px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+        .header-tab {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-dim);
+            transition: all 0.15s;
+        }
+        .header-tab:hover { background: var(--bg-hover); color: var(--text); }
+        .header-tab.active { background: var(--accent); color: white; }
+
+        /* === VIEWPORT MIDDLE === */
+        #viewport-area {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* === LEFT TOOLBAR === */
+        #left-toolbar {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px;
+        }
+        .tool-btn {
+            width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 4px; cursor: pointer;
+            color: var(--text-dim);
+            transition: all 0.15s;
+            font-size: 10px;
+            position: relative;
+        }
+        .tool-btn:hover { background: var(--bg-hover); color: var(--text); }
+        .tool-btn.active { background: var(--accent); color: white; }
+        .tool-btn .tooltip {
+            display: none; position: absolute; left: 38px; top: 50%; transform: translateY(-50%);
+            background: #111; border: 1px solid var(--border); padding: 3px 8px;
+            border-radius: 4px; font-size: 10px; white-space: nowrap; color: white; z-index: 100;
+        }
+        .tool-btn:hover .tooltip { display: block; }
+        .tool-sep { width: 24px; height: 1px; background: var(--border); margin: 2px 4px; }
+
+        /* === RIGHT PROPERTIES PANEL === */
+        #right-panel {
+            position: absolute;
+            right: 0; top: 0; bottom: 0;
+            width: 220px;
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.2s;
+            z-index: 15;
+        }
+        #right-panel.hidden { transform: translateX(100%); }
+        
+        .panel-section {
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .panel-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 10px; font-size: 11px; font-weight: 600;
+            background: var(--bg-header); cursor: pointer; color: var(--text);
+        }
+        .panel-section-header .arrow { transition: transform 0.2s; font-size: 8px; color: var(--text-dim); }
+        .panel-section-header.collapsed .arrow { transform: rotate(-90deg); }
+        .panel-content { padding: 8px 10px; font-size: 11px; }
+        .panel-content.collapsed { display: none; }
+
+        .prop-row { display: flex; align-items: center; margin-bottom: 5px; gap: 6px; }
+        .prop-label { color: var(--text-dim); font-size: 10px; width: 32px; flex-shrink: 0; }
+        .prop-input {
+            flex: 1; background: var(--bg-base); border: 1px solid var(--border);
+            color: var(--text); font-size: 10px; font-family: 'JetBrains Mono', monospace;
+            padding: 2px 5px; border-radius: 3px; outline: none;
+        }
+        .prop-input:focus { border-color: var(--accent); }
+
+        /* === BOTTOM TIMELINE === */
+        #timeline-area {
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+
+        #timeline-header {
+            height: 28px; display: flex; align-items: center; padding: 0 8px;
+            background: var(--bg-header); border-bottom: 1px solid var(--border); gap: 4px;
+        }
+        .tl-btn {
+            width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+            border-radius: 3px; cursor: pointer; color: var(--text-dim); font-size: 10px;
+            transition: all 0.12s;
+        }
+        .tl-btn:hover { background: var(--bg-hover); color: var(--text); }
+        .tl-btn.active { background: var(--accent); color: white; }
+        .tl-sep { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
+
+        #frame-display {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px;
+            background: var(--bg-base); border: 1px solid var(--border);
+            padding: 2px 6px; border-radius: 3px; color: var(--yellow); cursor: text;
+            min-width: 60px; text-align: center;
+        }
+
+        #timeline-tracks {
+            height: 120px;
+            display: flex;
+            overflow: hidden;
+        }
+
+        #track-labels {
+            width: 100px; flex-shrink: 0;
+            background: var(--bg-header);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+        }
+        .track-label {
+            height: 22px; display: flex; align-items: center;
+            padding: 0 8px; font-size: 10px; color: var(--text-dim);
+            border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden;
+            cursor: pointer;
+        }
+        .track-label:hover { background: var(--bg-hover); color: var(--text); }
+        .track-label.selected { background: rgba(61,155,255,0.15); color: var(--accent); }
+        .track-label .dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
+
+        #track-canvas-container {
+            flex: 1; position: relative; overflow: hidden; cursor: crosshair;
+        }
+        #track-canvas { display: block; }
+
+        #timeline-ruler {
+            height: 20px; background: var(--bg-header); border-bottom: 1px solid var(--border);
+            position: relative; overflow: hidden;
+        }
+        #ruler-canvas { display: block; }
+
+        /* Graph Editor */
+        #graph-editor {
+            display: none; height: 140px; border-top: 1px solid var(--border);
+            background: #1a1a1a; position: relative;
+        }
+        #graph-editor.visible { display: block; }
+        #graph-canvas { display: block; }
+
+        /* Scrubber en timeline */
+        #scrubber-line {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+            background: var(--accent); pointer-events: none; z-index: 10;
+        }
+        #scrubber-head {
+            position: absolute; top: 0; width: 10px; height: 14px;
+            background: var(--accent); margin-left: -4px; border-radius: 2px 2px 0 0;
+            cursor: ew-resize; z-index: 11;
+        }
+
+        /* === NOTIFICATION === */
+        #notification {
+            position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%);
+            background: #333; border: 1px solid var(--border); border-radius: 6px;
+            padding: 6px 14px; font-size: 11px; z-index: 999;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        #notification.show { opacity: 1; }
+
+        /* Dope sheet keyframe diamond */
+        .kf-diamond {
+            position: absolute; width: 8px; height: 8px;
+            transform: translateX(-50%) translateY(-50%) rotate(45deg);
+            cursor: pointer; z-index: 5; top: 50%;
+        }
+        .kf-diamond:hover { filter: brightness(1.3); }
+        .kf-diamond.selected { outline: 2px solid white; }
+
+        /* Channel toggle */
+        .channel-row {
+            display: flex; align-items: center; height: 22px; padding: 0 6px;
+            border-bottom: 1px solid var(--border); font-size: 10px; color: var(--text-dim);
+        }
+        .channel-toggle {
+            width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;
+            cursor: pointer; border: 1px solid var(--border); flex-shrink: 0;
+        }
+
+        /* Cursor position overlay */
+        #cursor-info {
+            position: absolute; bottom: 4px; left: 50px;
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--text-dim); pointer-events: none; z-index: 20;
+        }
+
+        /* Viewport overlays */
+        #viewport-overlay {
+            position: absolute; top: 8px; right: 230px;
+            display: flex; gap: 4px; z-index: 20; pointer-events: auto;
+        }
+        .overlay-btn {
+            background: rgba(26,26,26,0.85); border: 1px solid var(--border);
+            border-radius: 4px; padding: 3px 8px; font-size: 10px;
+            cursor: pointer; color: var(--text-dim); transition: all 0.15s;
+        }
+        .overlay-btn:hover { background: var(--bg-hover); color: var(--text); }
+        .overlay-btn.active { border-color: var(--accent); color: var(--accent); }
+
+        /* FPS indicator */
+        #fps-display {
+            position: absolute; top: 8px; left: 50px; z-index: 20;
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--green); pointer-events: none; opacity: 0.7;
+        }
+
+        /* Interpolation mode buttons */
+        .interp-btn {
+            font-size: 9px; padding: 1px 5px; border-radius: 3px;
+            cursor: pointer; border: 1px solid var(--border);
+            color: var(--text-dim); background: var(--bg-base);
+            transition: all 0.12s;
+        }
+        .interp-btn:hover, .interp-btn.active { border-color: var(--yellow); color: var(--yellow); }
+
+        /* Onion Skin */
+        .onion-ghost { opacity: 0.25; pointer-events: none; }
+
+        /* Context menu */
+        #ctx-menu {
+            position: fixed; background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: 6px; z-index: 200; min-width: 160px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: none;
+        }
+        .ctx-item {
+            padding: 5px 12px; font-size: 11px; cursor: pointer; display: flex;
+            align-items: center; gap: 8px; color: var(--text);
+        }
+        .ctx-item:hover { background: var(--accent); color: white; border-radius: 4px; }
+        .ctx-item .shortcut { margin-left: auto; color: var(--text-dim); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+        .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+        /* Range select */
+        #frame-range-bar {
+            height: 4px; background: rgba(61,155,255,0.3); position: absolute;
+            top: 10px; pointer-events: none; border-radius: 2px;
+        }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=number] { -moz-appearance: textfield; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        /* Easing curve preview */
+        #easing-preview { width: 100%; height: 40px; border-radius: 4px; background: var(--bg-base); border: 1px solid var(--border); }
+
+        /* Floating add menu */
+        #add-menu {
+            position: fixed; bottom: 210px; right: 230px; z-index: 100;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+            min-width: 160px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: none; pointer-events: auto;
+        }
+        .add-menu-item {
+            padding: 6px 14px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+        }
+        .add-menu-item:hover { background: var(--bg-hover); }
+        
+        /* Selected highlight */
+        #selected-info {
+            position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+            background: rgba(26,26,26,0.85); border: 1px solid var(--border);
+            border-radius: 4px; padding: 3px 10px; font-size: 10px; z-index: 20;
+            pointer-events: none; display: none; font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Interpolation selector */
+        #interp-toolbar {
+            display: flex; align-items: center; gap: 4px;
+            padding: 0 8px;
+        }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="fps-display">FPS: --</div>
+<div id="selected-info">Sin selección</div>
+<div id="cursor-info">X: 0.00  Y: 0.00  Z: 0.00</div>
+<div id="notification">✓ Keyframe añadido</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu">
+    <div class="ctx-item" data-action="add-kf">⬥ <span>Añadir Keyframe</span><span class="shortcut">I</span></div>
+    <div class="ctx-item" data-action="del-kf">✕ <span>Eliminar Keyframe</span><span class="shortcut">Alt+I</span></div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="duplicate">⊡ <span>Duplicar Objeto</span><span class="shortcut">Shift+D</span></div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="copy-kf">⎘ <span>Copiar Pose</span><span class="shortcut">Ctrl+C</span></div>
+    <div class="ctx-item" data-action="paste-kf">⎗ <span>Pegar Pose</span><span class="shortcut">Ctrl+V</span></div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="reset-pos">↺ <span>Resetear Posición</span><span class="shortcut">Alt+G</span></div>
+    <div class="ctx-item" data-action="reset-rot">↺ <span>Resetear Rotación</span><span class="shortcut">Alt+R</span></div>
+    <div class="ctx-item" data-action="reset-scale">↺ <span>Resetear Escala</span><span class="shortcut">Alt+S</span></div>
+</div>
+
+<!-- Add Menu -->
+<div id="add-menu">
+    <div style="padding: 6px 14px; font-size: 10px; color: var(--text-dim); border-bottom: 1px solid var(--border);">AÑADIR</div>
+    <div class="add-menu-item" id="add-image-btn">🖼️ Imagen...</div>
+    <div class="add-menu-item" id="add-cube-btn">📦 Cubo</div>
+    <div class="add-menu-item" id="add-sphere-btn">🔵 Esfera</div>
+    <div class="add-menu-item" id="add-cylinder-btn">🔷 Cilindro</div>
+    <div class="add-menu-item" id="add-light-btn">💡 Luz Puntual</div>
+    <div class="add-menu-item" id="add-text-btn">✏️ Cámara Path</div>
+</div>
+
+<div id="ui-layer">
+    <!-- HEADER BAR -->
+    <div id="header-bar" class="interactive">
+        <div style="width:28px;height:28px;background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0;">3D</div>
+        <div class="tl-sep"></div>
+        <div class="header-tab active">Layout</div>
+        <div class="header-tab">Animación</div>
+        <div class="header-tab">Renderizar</div>
+        <div style="flex:1"></div>
+        <div style="font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">Animador 3D  <span style="color:var(--yellow)">v3.0</span></div>
+    </div>
+
+    <!-- VIEWPORT MIDDLE -->
+    <div id="viewport-area">
+        <!-- Left Toolbar -->
+        <div id="left-toolbar" class="interactive">
+            <div class="tool-btn active" id="btn-translate" title="Mover">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="19 9 22 12 19 15"></polyline><polyline points="9 19 12 22 15 19"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+                <div class="tooltip">Mover (G)</div>
+            </div>
+            <div class="tool-btn" id="btn-rotate">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                <div class="tooltip">Rotar (R)</div>
+            </div>
+            <div class="tool-btn" id="btn-scale">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3l-6 6"></path><path d="M21 3v6"></path><path d="M21 3h-6"></path><path d="M3 21l6-6"></path><path d="M3 21v-6"></path><path d="M3 21h6"></path></svg>
+                <div class="tooltip">Escalar (S)</div>
+            </div>
+            <div class="tool-sep"></div>
+            <div class="tool-btn" id="btn-onion">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="7" opacity="0.5"></circle><circle cx="12" cy="12" r="11" opacity="0.25"></circle></svg>
+                <div class="tooltip">Onion Skin (Alt+O)</div>
+            </div>
+            <div class="tool-btn" id="btn-camera-view">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <div class="tooltip">Vista Cámara (0)</div>
+            </div>
+            <div class="tool-btn" id="btn-wire">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18M3 9h18M3 15h18"></path></svg>
+                <div class="tooltip">Wireframe (Z)</div>
+            </div>
+            <div class="tool-sep"></div>
+            <div class="tool-btn" id="btn-add-obj">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <div class="tooltip">Añadir (Shift+A)</div>
+            </div>
+            <div class="tool-btn" id="btn-delete" style="color:var(--red);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <div class="tooltip">Eliminar (X)</div>
+            </div>
+        </div>
+
+        <!-- Viewport overlays top right -->
+        <div id="viewport-overlay" class="interactive">
+            <div class="overlay-btn active" id="btn-shadows">Sombras</div>
+            <div class="overlay-btn" id="btn-grid-toggle">Grid</div>
+            <div class="overlay-btn" id="btn-axes">Ejes</div>
+            <div class="overlay-btn" id="btn-panel-toggle">Props ▶</div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div id="right-panel" class="interactive hidden">
+            <!-- Sección Objeto -->
+            <div class="panel-section">
+                <div class="panel-section-header" id="sec-obj">
+                    <span>📦 OBJETO</span><span class="arrow">▼</span>
+                </div>
+                <div class="panel-content" id="sec-obj-content">
+                    <div id="obj-name-row" class="prop-row" style="margin-bottom:8px;">
+                        <span style="font-size:10px;color:var(--text-dim)">Nombre:</span>
+                        <input id="obj-name" class="prop-input" style="flex:1;margin-left:6px;" value="Sin selección" readonly>
+                    </div>
+                    <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;">Posición</div>
+                    <div class="prop-row"><span class="prop-label" style="color:#e06a6a">X</span><input class="prop-input" id="pos-x" type="number" step="0.01" value="0"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#6abf6a">Y</span><input class="prop-input" id="pos-y" type="number" step="0.01" value="0"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#3d9bff">Z</span><input class="prop-input" id="pos-z" type="number" step="0.01" value="0"></div>
+                    <div style="font-size:10px;color:var(--text-dim);margin:6px 0 4px;">Rotación</div>
+                    <div class="prop-row"><span class="prop-label" style="color:#e06a6a">X</span><input class="prop-input" id="rot-x" type="number" step="0.1" value="0"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#6abf6a">Y</span><input class="prop-input" id="rot-y" type="number" step="0.1" value="0"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#3d9bff">Z</span><input class="prop-input" id="rot-z" type="number" step="0.1" value="0"></div>
+                    <div style="font-size:10px;color:var(--text-dim);margin:6px 0 4px;">Escala</div>
+                    <div class="prop-row"><span class="prop-label" style="color:#e06a6a">X</span><input class="prop-input" id="scl-x" type="number" step="0.01" value="1"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#6abf6a">Y</span><input class="prop-input" id="scl-y" type="number" step="0.01" value="1"></div>
+                    <div class="prop-row"><span class="prop-label" style="color:#3d9bff">Z</span><input class="prop-input" id="scl-z" type="number" step="0.01" value="1"></div>
+                </div>
+            </div>
+            <!-- Sección Animación -->
+            <div class="panel-section">
+                <div class="panel-section-header" id="sec-anim">
+                    <span>🎬 ANIMACIÓN</span><span class="arrow">▼</span>
+                </div>
+                <div class="panel-content" id="sec-anim-content">
+                    <div class="prop-row" style="justify-content:space-between;">
+                        <span style="font-size:10px;color:var(--text-dim)">Interpolación</span>
+                        <div style="display:flex;gap:3px;">
+                            <div class="interp-btn active" data-interp="linear">LIN</div>
+                            <div class="interp-btn" data-interp="bezier">BEZ</div>
+                            <div class="interp-btn" data-interp="constant">CST</div>
+                        </div>
+                    </div>
+                    <div class="prop-row" style="margin-top:6px;">
+                        <span style="font-size:10px;color:var(--text-dim)">Keyframes:</span>
+                        <span id="kf-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--yellow);margin-left:6px;">0</span>
+                    </div>
+                    <div class="prop-row">
+                        <span style="font-size:10px;color:var(--text-dim)">Inicio:</span>
+                        <input class="prop-input" id="range-start" type="number" value="0" style="width:45px;margin-left:6px;">
+                        <span style="font-size:10px;color:var(--text-dim);margin-left:6px;">Fin:</span>
+                        <input class="prop-input" id="range-end" type="number" value="120" style="width:45px;margin-left:6px;">
+                    </div>
+                    <canvas id="easing-preview" height="40" style="margin-top:6px;"></canvas>
+                </div>
+            </div>
+            <!-- Sección Render -->
+            <div class="panel-section">
+                <div class="panel-section-header" id="sec-render">
+                    <span>🎥 RENDERIZAR</span><span class="arrow">▼</span>
+                </div>
+                <div class="panel-content" id="sec-render-content">
+                    <div class="prop-row">
+                        <span style="font-size:10px;color:var(--text-dim)">FPS:</span>
+                        <select class="prop-input" id="fps-select" style="margin-left:6px;">
+                            <option value="24">24</option>
+                            <option value="30" selected>30</option>
+                            <option value="60">60</option>
+                        </select>
+                    </div>
+                    <div class="prop-row">
+                        <span style="font-size:10px;color:var(--text-dim)">Frames:</span>
+                        <input class="prop-input" id="max-frames" type="number" value="120" min="1" max="900" style="margin-left:6px;">
+                    </div>
+                    <div style="margin-top:8px;">
+                        <button id="btn-render-still" style="width:100%;background:var(--accent);color:white;border:none;padding:5px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'Outfit',sans-serif;">📸 Captura de Frame</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Sección Escena -->
+            <div class="panel-section">
+                <div class="panel-section-header" id="sec-scene">
+                    <span>🌐 ESCENA</span><span class="arrow">▼</span>
+                </div>
+                <div class="panel-content" id="sec-scene-content">
+                    <div id="outliner" style="max-height:100px;overflow-y:auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TIMELINE AREA -->
+    <div id="timeline-area" class="interactive">
+        <!-- Timeline Header Controls -->
+        <div id="timeline-header">
+            <!-- Transport -->
+            <div class="tl-btn" id="btn-first-frame" title="Ir al inicio (Shift+←)">⏮</div>
+            <div class="tl-btn" id="btn-prev-kf" title="Keyframe anterior (←)">◀</div>
+            <div class="tl-btn" id="btn-play" title="Reproducir (Space)" style="color:var(--green)">▶</div>
+            <div class="tl-btn" id="btn-next-kf" title="Keyframe siguiente (→)">▶</div>
+            <div class="tl-btn" id="btn-last-frame" title="Ir al final (Shift+→)">⏭</div>
+            <div class="tl-sep"></div>
+            <!-- Frame display -->
+            <div id="frame-display" contenteditable="true" title="Frame actual">0</div>
+            <div class="tl-sep"></div>
+            <!-- Keyframe tools -->
+            <div class="tl-btn" id="btn-keyframe" title="Fijar Keyframe (I)" style="color:var(--yellow);">⬥</div>
+            <div class="tl-btn" id="btn-del-kf" title="Borrar Keyframe (Alt+I)" style="color:var(--red);">⬦</div>
+            <div class="tl-btn" id="btn-copy-pose" title="Copiar Pose (Ctrl+C)">⎘</div>
+            <div class="tl-btn" id="btn-paste-pose" title="Pegar Pose (Ctrl+V)">⎗</div>
+            <div class="tl-sep"></div>
+            <!-- View -->
+            <div class="tl-btn active" id="btn-dope" title="Dope Sheet">◈</div>
+            <div class="tl-btn" id="btn-graph" title="Editor de Curvas">〜</div>
+            <div class="tl-sep"></div>
+            <!-- Interpolation inline -->
+            <div id="interp-toolbar">
+                <span style="font-size:9px;color:var(--text-dim)">Interp:</span>
+                <div class="interp-btn active" data-interp="linear">LIN</div>
+                <div class="interp-btn" data-interp="bezier">BEZ</div>
+                <div class="interp-btn" data-interp="constant">CST</div>
+                <div class="interp-btn" data-interp="elastic">ELS</div>
+                <div class="interp-btn" data-interp="bounce">BNC</div>
+            </div>
+            <div class="tl-sep"></div>
+            <!-- Loop & autokey -->
+            <div class="tl-btn" id="btn-loop" title="Bucle de Animación">🔁</div>
+            <div class="tl-btn" id="btn-autokey" title="Auto-Keyframe" style="font-size:9px;">AUTO</div>
+            <div style="flex:1"></div>
+            <div class="tl-btn" id="btn-add-channel">+ Canal</div>
+        </div>
+
+        <!-- Ruler -->
+        <div id="timeline-ruler">
+            <canvas id="ruler-canvas"></canvas>
+        </div>
+
+        <!-- Tracks / Dope Sheet -->
+        <div id="timeline-tracks">
+            <div id="track-labels"></div>
+            <div id="track-canvas-container">
+                <div id="scrubber-head"></div>
+                <div id="scrubber-line"></div>
+                <div id="frame-range-bar"></div>
+                <canvas id="track-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Graph Editor -->
+        <div id="graph-editor">
+            <canvas id="graph-canvas"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- File Input -->
+<input type="file" id="file-input" accept="image/png, image/jpeg, image/webp" multiple>
+<div id="loader" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid var(--border);border-radius:8px;padding:12px 20px;z-index:999;font-size:12px;color:var(--text);">⏳ Procesando textura...</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+// ===================== STATE =====================
+let scene, camera, renderer, orbitControls, transformControls;
+const sceneObjects = [];
+let selectedObject = null;
+let copiedPose = null;
+
+// Timeline
+let MAX_FRAMES = 120;
+let currentFrame = 0;
+let isPlaying = false;
+let looping = true;
+let autoKey = false;
+let currentInterp = 'linear';
+let FPS = 30;
+let animId;
+const clock = new THREE.Clock();
+let timeAccum = 0;
+
+// Onion skin
+let onionSkin = false;
+let onionGhosts = [];
+let wireframeMode = false;
+let shadowsEnabled = true;
+let gridVisible = true;
+let axesVisible = true;
+let showGraph = false;
+let cameraViewMode = false;
+
+// Panning / scrubbing state
+let isScrubbing = false;
+let trackViewOffset = 0; // horizontal scroll in track area (pixels per frame)
+let trackZoom = 1; // zoom factor
+const PX_PER_FRAME_BASE = 6;
+
+// Camera path animation
+let camPath = null;
+let camPathT = 0;
+
+// FPS counter
+let lastFpsTime = 0, fpsFrames = 0, displayedFPS = 0;
+
+// ===================== DOM =====================
+const $ = id => document.getElementById(id);
+const fileInput = $('file-input');
+const loader = $('loader');
+const frameDisplay = $('frame-display');
+const notification = $('notification');
+const trackContainer = $('track-canvas-container');
+const trackCanvas = $('track-canvas');
+const rulerCanvas = $('ruler-canvas');
+const graphCanvas = $('graph-canvas');
+const trackCtx = trackCanvas.getContext('2d');
+const rulerCtx = rulerCanvas.getContext('2d');
+const graphCtx = graphCanvas.getContext('2d');
+const trackLabels = $('track-labels');
+const outliner = $('outliner');
+const selectedInfo = $('selected-info');
+const cursorInfo = $('cursor-info');
+const fpsDisplay = $('fps-display');
+const ctxMenu = $('ctx-menu');
+const addMenu = $('add-menu');
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tmpV3 = new THREE.Vector3();
+
+// ===================== INIT =====================
+init();
+
+function init() {
+    const container = $('canvas-container');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    scene.fog = new THREE.Fog(0x111111, 30, 120);
+
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 6, 22);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    container.appendChild(renderer.domElement);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+    sun.position.set(10, 20, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -25; sun.shadow.camera.right = 25;
+    sun.shadow.camera.top = 25; sun.shadow.camera.bottom = -25;
+    sun.shadow.bias = -0.001;
+    scene.add(sun);
+    const backLight = new THREE.DirectionalLight(0x60a5fa, 0.4);
+    backLight.position.set(-10, 8, -10);
+    scene.add(backLight);
+
+    // Floor
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(100, 100, 0x444444, 0x252525);
+    grid.position.y = 0.02;
+    grid.name = '__grid';
+    scene.add(grid);
+
+    // Axes helper
+    const axes = new THREE.AxesHelper(3);
+    axes.position.y = 0.05;
+    axes.name = '__axes';
+    scene.add(axes);
+
+    // Controls
+    orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+    orbitControls.maxDistance = 150;
+    orbitControls.maxPolarAngle = Math.PI / 2 - 0.03;
+
+    transformControls = new TransformControls(camera, renderer.domElement);
+    transformControls.addEventListener('dragging-changed', e => {
+        orbitControls.enabled = !e.value;
+        if (e.value) pauseAnimation();
+    });
+    transformControls.addEventListener('change', () => {
+        updatePropertiesPanel();
+        if (autoKey && selectedObject) addKeyframe();
+    });
+    scene.add(transformControls);
+
+    // Camera path helper (invisible by default)
+    const camCurvePoints = [
+        new THREE.Vector3(-15, 8, 20), new THREE.Vector3(0, 5, 25),
+        new THREE.Vector3(15, 8, 20), new THREE.Vector3(0, 12, 5)
+    ];
+    camPath = new THREE.CatmullRomCurve3(camCurvePoints, true);
+    const camPathGeo = new THREE.BufferGeometry().setFromPoints(camPath.getPoints(60));
+    const camPathLine = new THREE.Line(camPathGeo, new THREE.LineBasicMaterial({ color: 0x3d9bff, opacity: 0.3, transparent: true }));
+    camPathLine.name = '__campath';
+    camPathLine.visible = false;
+    scene.add(camPathLine);
+
+    // Events
+    window.addEventListener('resize', onResize);
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('contextmenu', onContextMenu);
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', () => { ctxMenu.style.display = 'none'; addMenu.style.display = 'none'; });
+
+    // UI events
+    $('btn-translate').addEventListener('click', () => setMode('translate'));
+    $('btn-rotate').addEventListener('click', () => setMode('rotate'));
+    $('btn-scale').addEventListener('click', () => setMode('scale'));
+    $('btn-delete').addEventListener('click', deleteSelected);
+    $('btn-onion').addEventListener('click', toggleOnionSkin);
+    $('btn-camera-view').addEventListener('click', toggleCameraView);
+    $('btn-wire').addEventListener('click', toggleWireframe);
+    $('btn-add-obj').addEventListener('click', e => { e.stopPropagation(); addMenu.style.display = addMenu.style.display === 'block' ? 'none' : 'block'; });
+
+    $('btn-shadows').addEventListener('click', () => { shadowsEnabled = !shadowsEnabled; renderer.shadowMap.enabled = shadowsEnabled; $('btn-shadows').classList.toggle('active', shadowsEnabled); notify(shadowsEnabled ? 'Sombras: ON' : 'Sombras: OFF'); });
+    $('btn-grid-toggle').addEventListener('click', () => { gridVisible = !gridVisible; scene.getObjectByName('__grid').visible = gridVisible; $('btn-grid-toggle').classList.toggle('active', gridVisible); });
+    $('btn-axes').addEventListener('click', () => { axesVisible = !axesVisible; scene.getObjectByName('__axes').visible = axesVisible; $('btn-axes').classList.toggle('active', axesVisible); });
+    $('btn-panel-toggle').addEventListener('click', () => { $('right-panel').classList.toggle('hidden'); $('btn-panel-toggle').textContent = $('right-panel').classList.contains('hidden') ? 'Props ▶' : 'Props ◀'; $('viewport-overlay').style.right = $('right-panel').classList.contains('hidden') ? '8px' : '230px'; });
+
+    // Transport
+    $('btn-play').addEventListener('click', togglePlay);
+    $('btn-first-frame').addEventListener('click', () => { pauseAnimation(); setFrame(0); });
+    $('btn-last-frame').addEventListener('click', () => { pauseAnimation(); setFrame(MAX_FRAMES); });
+    $('btn-prev-kf').addEventListener('click', goPrevKeyframe);
+    $('btn-next-kf').addEventListener('click', goNextKeyframe);
+    $('btn-loop').addEventListener('click', () => { looping = !looping; $('btn-loop').style.color = looping ? 'var(--green)' : 'var(--text-dim)'; notify(looping ? 'Bucle: ON' : 'Bucle: OFF'); });
+    $('btn-autokey').addEventListener('click', () => { autoKey = !autoKey; $('btn-autokey').style.color = autoKey ? 'var(--red)' : 'var(--text-dim)'; $('btn-autokey').style.background = autoKey ? 'rgba(224,106,106,0.2)' : ''; notify(autoKey ? '🔴 Auto-Keyframe: ON' : 'Auto-Keyframe: OFF'); });
+
+    $('btn-keyframe').addEventListener('click', addKeyframe);
+    $('btn-del-kf').addEventListener('click', deleteKeyframeAtCurrent);
+    $('btn-copy-pose').addEventListener('click', copyPose);
+    $('btn-paste-pose').addEventListener('click', pastePose);
+    $('btn-add-channel').addEventListener('click', () => notify('Canal personalizado (próximamente)'));
+
+    $('btn-dope').addEventListener('click', () => { showGraph = false; $('graph-editor').classList.remove('visible'); $('btn-dope').classList.add('active'); $('btn-graph').classList.remove('active'); renderTimeline(); });
+    $('btn-graph').addEventListener('click', () => { showGraph = true; $('graph-editor').classList.add('visible'); $('btn-graph').classList.add('active'); $('btn-dope').classList.remove('active'); renderTimeline(); renderGraphEditor(); });
+
+    // Interpolation buttons (both panels)
+    document.querySelectorAll('.interp-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentInterp = btn.dataset.interp;
+            document.querySelectorAll('.interp-btn').forEach(b => b.classList.toggle('active', b.dataset.interp === currentInterp));
+            drawEasingPreview();
+            notify('Interpolación: ' + currentInterp.toUpperCase());
+        });
+    });
+
+    // Frame display editable
+    frameDisplay.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const v = parseInt(frameDisplay.textContent); if (!isNaN(v)) setFrame(v); frameDisplay.blur(); }});
+
+    // Properties panel inputs
+    ['pos-x','pos-y','pos-z','rot-x','rot-y','rot-z','scl-x','scl-y','scl-z'].forEach(id => {
+        $(id).addEventListener('change', applyPropertiesPanel);
+    });
+
+    // Range inputs
+    $('range-start').addEventListener('change', () => { trackViewOffset = parseInt($('range-start').value) || 0; renderTimeline(); });
+    $('range-end').addEventListener('change', () => { MAX_FRAMES = parseInt($('range-end').value) || 120; $('max-frames').value = MAX_FRAMES; renderTimeline(); });
+    $('max-frames').addEventListener('change', () => { MAX_FRAMES = parseInt($('max-frames').value) || 120; $('range-end').value = MAX_FRAMES; renderTimeline(); });
+    $('fps-select').addEventListener('change', () => { FPS = parseInt($('fps-select').value); notify('FPS: ' + FPS); });
+
+    // Add menu
+    $('add-image-btn').addEventListener('click', () => { fileInput.click(); addMenu.style.display='none'; });
+    $('add-cube-btn').addEventListener('click', () => { addPrimitive('box'); addMenu.style.display='none'; });
+    $('add-sphere-btn').addEventListener('click', () => { addPrimitive('sphere'); addMenu.style.display='none'; });
+    $('add-cylinder-btn').addEventListener('click', () => { addPrimitive('cylinder'); addMenu.style.display='none'; });
+    $('add-light-btn').addEventListener('click', () => { addPointLight(); addMenu.style.display='none'; });
+    $('add-text-btn').addEventListener('click', () => { toggleCameraPath(); addMenu.style.display='none'; });
+    fileInput.addEventListener('change', handleFileUpload);
+
+    // Context menu
+    ctxMenu.querySelectorAll('.ctx-item').forEach(item => {
+        item.addEventListener('click', e => { e.stopPropagation(); handleCtxAction(item.dataset.action); ctxMenu.style.display='none'; });
+    });
+
+    // Render still
+    $('btn-render-still').addEventListener('click', renderStill);
+
+    // Timeline scrubbing
+    trackContainer.addEventListener('mousedown', onTrackMouseDown);
+    trackContainer.addEventListener('wheel', onTrackWheel);
+
+    // Scrubber head dragging
+    $('scrubber-head').addEventListener('mousedown', onScrubberDrag);
+
+    // Collapsible sections
+    ['sec-obj','sec-anim','sec-render','sec-scene'].forEach(id => {
+        $(id).addEventListener('click', () => {
+            const contentId = id + '-content';
+            const el = $(contentId);
+            el.classList.toggle('collapsed');
+            $(id).classList.toggle('collapsed');
+        });
+    });
+
+    initTimeline();
+    onResize();
+    animate();
+    drawEasingPreview();
+}
+
+// ===================== ANIMATION LOOP =====================
+function animate() {
+    animId = requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+
+    // FPS counter
+    fpsFrames++;
+    const now = performance.now();
+    if (now - lastFpsTime > 500) {
+        displayedFPS = Math.round(fpsFrames / ((now - lastFpsTime) / 1000));
+        fpsDisplay.textContent = `FPS: ${displayedFPS}`;
+        fpsFrames = 0;
+        lastFpsTime = now;
+    }
+
+    if (isPlaying) {
+        timeAccum += delta;
+        const fd = 1 / FPS;
+        if (timeAccum >= fd) {
+            timeAccum -= fd;
+            let next = currentFrame + 1;
+            if (next > MAX_FRAMES) next = looping ? 0 : (pauseAnimation(), MAX_FRAMES);
+            setFrame(next);
+        }
+        // Camera path animation
+        if (cameraViewMode && camPath) {
+            camPathT = currentFrame / MAX_FRAMES;
+            const pt = camPath.getPoint(camPathT);
+            const tang = camPath.getTangent(camPathT);
+            camera.position.lerp(pt, 0.1);
+            const lookAt = pt.clone().add(tang.multiplyScalar(5));
+            camera.lookAt(lookAt);
+        }
+    }
+
+    orbitControls.update();
+    updateOnionSkin();
+    renderer.render(scene, camera);
+    updateCursorInfo();
+}
+
+// ===================== FRAME MANAGEMENT =====================
+function setFrame(f) {
+    currentFrame = Math.max(0, Math.min(f, MAX_FRAMES));
+    frameDisplay.textContent = currentFrame;
+    sceneObjects.forEach(obj => applyKeyframes(obj, currentFrame));
+    updatePropertiesPanel();
+    renderTimeline();
+    if (showGraph) renderGraphEditor();
+}
+
+function updateScrubber() {
+    const tw = trackContainer.clientWidth;
+    const pxPerFrame = (tw / MAX_FRAMES) * trackZoom;
+    const x = currentFrame * pxPerFrame - trackViewOffset * pxPerFrame;
+    $('scrubber-line').style.left = x + 'px';
+    $('scrubber-head').style.left = x + 'px';
+}
+
+// ===================== KEYFRAME SYSTEM =====================
+function addKeyframe() {
+    if (!selectedObject) { notify('⚠ Selecciona un objeto primero'); return; }
+    const keys = selectedObject.userData.keyframes;
+    const existing = keys.findIndex(k => k.frame === currentFrame);
+    const kf = {
+        frame: currentFrame,
+        position: selectedObject.position.clone(),
+        quaternion: selectedObject.quaternion.clone(),
+        scale: selectedObject.scale.clone(),
+        interp: currentInterp
+    };
+    if (existing >= 0) keys[existing] = kf;
+    else { keys.push(kf); keys.sort((a,b) => a.frame - b.frame); }
+    selectedObject.userData.keyframes = keys;
+    updateKFCount();
+    notify(`⬥ Keyframe en frame ${currentFrame}`);
+    renderTimeline();
+    if (showGraph) renderGraphEditor();
+}
+
+function deleteKeyframeAtCurrent() {
+    if (!selectedObject) return;
+    selectedObject.userData.keyframes = selectedObject.userData.keyframes.filter(k => k.frame !== currentFrame);
+    updateKFCount();
+    notify('Keyframe eliminado');
+    renderTimeline();
+}
+
+function copyPose() {
+    if (!selectedObject) return;
+    copiedPose = {
+        position: selectedObject.position.clone(),
+        quaternion: selectedObject.quaternion.clone(),
+        scale: selectedObject.scale.clone()
+    };
+    notify('⎘ Pose copiada');
+}
+
+function pastePose() {
+    if (!selectedObject || !copiedPose) return;
+    selectedObject.position.copy(copiedPose.position);
+    selectedObject.quaternion.copy(copiedPose.quaternion);
+    selectedObject.scale.copy(copiedPose.scale);
+    updatePropertiesPanel();
+    if (autoKey) addKeyframe();
+    notify('⎗ Pose pegada');
+}
+
+function goPrevKeyframe() {
+    if (!selectedObject) return;
+    const keys = selectedObject.userData.keyframes;
+    const prev = [...keys].reverse().find(k => k.frame < currentFrame);
+    if (prev) setFrame(prev.frame);
+    else if (keys.length) setFrame(keys[keys.length - 1].frame);
+}
+
+function goNextKeyframe() {
+    if (!selectedObject) return;
+    const keys = selectedObject.userData.keyframes;
+    const next = keys.find(k => k.frame > currentFrame);
+    if (next) setFrame(next.frame);
+    else if (keys.length) setFrame(keys[0].frame);
+}
+
+function updateKFCount() {
+    if (selectedObject) $('kf-count').textContent = selectedObject.userData.keyframes.length;
+}
+
+// ===================== INTERPOLATION =====================
+function easeFunction(t, type) {
+    switch(type) {
+        case 'linear': return t;
+        case 'bezier': return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease-in-out
+        case 'constant': return t < 1 ? 0 : 1;
+        case 'elastic': {
+            const c = (2*Math.PI)/3;
+            return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10*t) * Math.sin((t*10-0.75)*c) + 1;
+        }
+        case 'bounce': {
+            const n1 = 7.5625, d1 = 2.75;
+            if (t < 1/d1) return n1*t*t;
+            else if (t < 2/d1) return n1*(t-=1.5/d1)*t+0.75;
+            else if (t < 2.5/d1) return n1*(t-=2.25/d1)*t+0.9375;
+            else return n1*(t-=2.625/d1)*t+0.984375;
+        }
+        default: return t;
+    }
+}
+
+function applyKeyframes(object, frame) {
+    const keys = object.userData.keyframes;
+    if (!keys || keys.length === 0) return;
+    if (keys.length === 1) {
+        object.position.copy(keys[0].position);
+        object.quaternion.copy(keys[0].quaternion);
+        object.scale.copy(keys[0].scale);
+        return;
+    }
+    let prev = null, next = null;
+    if (frame <= keys[0].frame) { object.position.copy(keys[0].position); object.quaternion.copy(keys[0].quaternion); object.scale.copy(keys[0].scale); return; }
+    if (frame >= keys[keys.length-1].frame) { const l = keys[keys.length-1]; object.position.copy(l.position); object.quaternion.copy(l.quaternion); object.scale.copy(l.scale); return; }
+    for (let i = 0; i < keys.length-1; i++) {
+        if (frame >= keys[i].frame && frame <= keys[i+1].frame) { prev = keys[i]; next = keys[i+1]; break; }
+    }
+    const rawT = (frame - prev.frame) / (next.frame - prev.frame);
+    const t = easeFunction(rawT, prev.interp || currentInterp);
+    object.position.lerpVectors(prev.position, next.position, t);
+    object.quaternion.slerpQuaternions(prev.quaternion, next.quaternion, t);
+    object.scale.lerpVectors(prev.scale, next.scale, t);
+}
+
+// ===================== ONION SKIN =====================
+function toggleOnionSkin() {
+    onionSkin = !onionSkin;
+    $('btn-onion').classList.toggle('active', onionSkin);
+    if (!onionSkin) { onionGhosts.forEach(g => scene.remove(g)); onionGhosts = []; }
+    notify(onionSkin ? '🧅 Onion Skin: ON' : 'Onion Skin: OFF');
+}
+
+function updateOnionSkin() {
+    if (!onionSkin || !selectedObject) return;
+    onionGhosts.forEach(g => scene.remove(g)); onionGhosts = [];
+    const offsets = [-3, -2, -1, 1, 2, 3];
+    offsets.forEach(off => {
+        const f = currentFrame + off;
+        if (f < 0 || f > MAX_FRAMES) return;
+        const ghost = selectedObject.clone();
+        applyKeyframes(ghost, f);
+        ghost.material = selectedObject.material.clone();
+        ghost.material.opacity = 0.15;
+        ghost.material.transparent = true;
+        ghost.material.color = new THREE.Color(off < 0 ? 0x4488ff : 0xff8844);
+        scene.add(ghost);
+        onionGhosts.push(ghost);
+    });
+}
+
+// ===================== WIREFRAME =====================
+function toggleWireframe() {
+    wireframeMode = !wireframeMode;
+    $('btn-wire').classList.toggle('active', wireframeMode);
+    sceneObjects.forEach(obj => { if (obj.material) obj.material.wireframe = wireframeMode; });
+}
+
+// ===================== CAMERA VIEW / PATH =====================
+function toggleCameraView() {
+    cameraViewMode = !cameraViewMode;
+    $('btn-camera-view').classList.toggle('active', cameraViewMode);
+    orbitControls.enabled = !cameraViewMode;
+    const line = scene.getObjectByName('__campath');
+    if (line) line.visible = cameraViewMode;
+    notify(cameraViewMode ? '🎥 Vista Cámara: ON' : 'Vista Cámara: OFF');
+}
+
+function toggleCameraPath() {
+    const line = scene.getObjectByName('__campath');
+    if (line) { line.visible = !line.visible; notify(line.visible ? '📍 Path de cámara visible' : 'Path de cámara oculto'); }
+}
+
+// ===================== PLAY / PAUSE =====================
+function togglePlay() {
+    if (isPlaying) pauseAnimation(); else playAnimation();
+}
+
+function playAnimation() {
+    isPlaying = true;
+    if (currentFrame >= MAX_FRAMES) setFrame(0);
+    $('btn-play').textContent = '⏸';
+    $('btn-play').style.color = 'var(--yellow)';
+}
+
+function pauseAnimation() {
+    isPlaying = false;
+    $('btn-play').textContent = '▶';
+    $('btn-play').style.color = 'var(--green)';
+}
+
+// ===================== SELECTION =====================
+function onPointerDown(e) {
+    if (transformControls.dragging) return;
+    if (e.target !== renderer.domElement) return;
+    if (e.button === 2) return; // right click handled by contextmenu
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(sceneObjects);
+    if (hits.length > 0) selectObject(hits[0].object);
+    else deselectObject();
+}
+
+function onMouseMove(e) {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+}
+
+function updateCursorInfo() {
+    if (!selectedObject) { cursorInfo.textContent = ''; return; }
+    const p = selectedObject.position;
+    cursorInfo.textContent = `X: ${p.x.toFixed(2)}  Y: ${p.y.toFixed(2)}  Z: ${p.z.toFixed(2)}`;
+}
+
+function selectObject(obj) {
+    selectedObject = obj;
+    transformControls.attach(obj);
+    selectedInfo.style.display = 'block';
+    selectedInfo.textContent = obj.name || 'Objeto';
+    updatePropertiesPanel();
+    updateKFCount();
+    updateOutliner();
+    renderTimeline();
+}
+
+function deselectObject() {
+    selectedObject = null;
+    transformControls.detach();
+    selectedInfo.style.display = 'none';
+    updatePropertiesPanel();
+    updateKFCount();
+    updateOutliner();
+    renderTimeline();
+}
+
+function setMode(mode) {
+    transformControls.setMode(mode);
+    ['translate','rotate','scale'].forEach(m => $('btn-'+m).classList.toggle('active', m === mode));
+}
+
+// ===================== PROPERTIES PANEL =====================
+function updatePropertiesPanel() {
+    const obj = selectedObject;
+    if (!obj) { $('obj-name').value = 'Sin selección'; return; }
+    $('obj-name').value = obj.name || 'Objeto';
+    $('pos-x').value = obj.position.x.toFixed(3);
+    $('pos-y').value = obj.position.y.toFixed(3);
+    $('pos-z').value = obj.position.z.toFixed(3);
+    $('rot-x').value = THREE.MathUtils.radToDeg(obj.rotation.x).toFixed(1);
+    $('rot-y').value = THREE.MathUtils.radToDeg(obj.rotation.y).toFixed(1);
+    $('rot-z').value = THREE.MathUtils.radToDeg(obj.rotation.z).toFixed(1);
+    $('scl-x').value = obj.scale.x.toFixed(3);
+    $('scl-y').value = obj.scale.y.toFixed(3);
+    $('scl-z').value = obj.scale.z.toFixed(3);
+    $('kf-count').textContent = obj.userData.keyframes ? obj.userData.keyframes.length : 0;
+}
+
+function applyPropertiesPanel() {
+    if (!selectedObject) return;
+    selectedObject.position.set(parseFloat($('pos-x').value)||0, parseFloat($('pos-y').value)||0, parseFloat($('pos-z').value)||0);
+    selectedObject.rotation.set(
+        THREE.MathUtils.degToRad(parseFloat($('rot-x').value)||0),
+        THREE.MathUtils.degToRad(parseFloat($('rot-y').value)||0),
+        THREE.MathUtils.degToRad(parseFloat($('rot-z').value)||0)
+    );
+    selectedObject.scale.set(parseFloat($('scl-x').value)||1, parseFloat($('scl-y').value)||1, parseFloat($('scl-z').value)||1);
+    if (autoKey) addKeyframe();
+}
+
+// ===================== OUTLINER =====================
+function updateOutliner() {
+    outliner.innerHTML = '';
+    sceneObjects.forEach((obj, i) => {
+        const row = document.createElement('div');
+        row.className = 'track-label' + (obj === selectedObject ? ' selected' : '');
+        row.innerHTML = `<div class="dot" style="background:${obj.userData.color||'#888'}"></div>${obj.name || 'Objeto ' + (i+1)}`;
+        row.addEventListener('click', () => selectObject(obj));
+        outliner.appendChild(row);
+    });
+}
+
+// ===================== TIMELINE CANVAS =====================
+function initTimeline() {
+    const resizeObserver = new ResizeObserver(() => { resizeTimelineCanvas(); renderTimeline(); });
+    resizeObserver.observe(trackContainer);
+    resizeObserver.observe($('timeline-ruler'));
+    resizeTimelineCanvas();
+    renderTimeline();
+}
+
+function resizeTimelineCanvas() {
+    const tw = trackContainer.clientWidth;
+    const th = trackContainer.clientHeight;
+    trackCanvas.width = tw; trackCanvas.height = th;
+    rulerCanvas.width = $('timeline-ruler').clientWidth;
+    rulerCanvas.height = $('timeline-ruler').clientHeight;
+    graphCanvas.width = $('graph-editor').clientWidth;
+    graphCanvas.height = $('graph-editor').clientHeight;
+}
+
+function pxPerFrame() { return (trackCanvas.width / MAX_FRAMES) * trackZoom; }
+function frameToPx(f) { return f * pxPerFrame() - trackViewOffset * pxPerFrame(); }
+function pxToFrame(px) { return Math.round((px + trackViewOffset * pxPerFrame()) / pxPerFrame()); }
+
+function renderTimeline() {
+    const ctx = trackCtx;
+    const w = trackCanvas.width, h = trackCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const ppf = pxPerFrame();
+    const colors = ['#e06a6a','#6abf6a','#3d9bff','#e8c06a','#b06aff','#6affb0'];
+
+    // Background grid
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.lineWidth = 1;
+    const frameStep = Math.max(1, Math.floor(10 / ppf) * 5);
+    for (let f = 0; f <= MAX_FRAMES; f += frameStep) {
+        const x = frameToPx(f);
+        if (x < 0 || x > w) continue;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+
+    // Range highlight
+    const startX = frameToPx(parseInt($('range-start').value) || 0);
+    const endX = frameToPx(parseInt($('range-end').value) || MAX_FRAMES);
+    ctx.fillStyle = 'rgba(61,155,255,0.05)';
+    ctx.fillRect(startX, 0, endX - startX, h);
+
+    // Tracks per object
+    updateTrackLabels();
+    const trackH = 22;
+    sceneObjects.forEach((obj, oi) => {
+        const trackY = oi * trackH;
+        if (obj === selectedObject) {
+            ctx.fillStyle = 'rgba(61,155,255,0.06)';
+            ctx.fillRect(0, trackY, w, trackH);
+        }
+        // Keyframe diamonds
+        (obj.userData.keyframes || []).forEach((kf, ki) => {
+            const x = frameToPx(kf.frame);
+            if (x < -10 || x > w + 10) return;
+            const y = trackY + trackH / 2;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(Math.PI / 4);
+            const size = 5;
+            const color = colors[oi % colors.length];
+            ctx.fillStyle = kf.frame === currentFrame && obj === selectedObject ? '#fff' : color;
+            ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+            ctx.fillRect(-size/2, -size/2, size, size);
+            ctx.strokeRect(-size/2, -size/2, size, size);
+            ctx.restore();
+        });
+
+        // Motion path between keyframes (line)
+        if (obj.userData.keyframes && obj.userData.keyframes.length > 1) {
+            ctx.strokeStyle = colors[oi % colors.length] + '44';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3,3]);
+            ctx.beginPath();
+            obj.userData.keyframes.forEach((kf, i) => {
+                const x = frameToPx(kf.frame);
+                const y = trackY + trackH / 2;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    });
+
+    // Current frame line
+    const cx = frameToPx(currentFrame);
+    ctx.strokeStyle = '#3d9bff';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+    ctx.fillStyle = '#3d9bff';
+    ctx.fillRect(cx - 1, 0, 3, h);
+
+    // Update scrubber position
+    $('scrubber-line').style.left = cx + 'px';
+    $('scrubber-head').style.left = (cx - 4) + 'px';
+
+    // Ruler
+    renderRuler();
+}
+
+function renderRuler() {
+    const ctx = rulerCtx;
+    const w = rulerCanvas.width, h = rulerCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, w, h);
+
+    const ppf = pxPerFrame();
+    const step = Math.max(1, Math.ceil(40 / ppf));
+    ctx.fillStyle = '#666';
+    ctx.font = '9px JetBrains Mono, monospace';
+    for (let f = 0; f <= MAX_FRAMES; f += step) {
+        const x = frameToPx(f);
+        if (x < 0 || x > w) continue;
+        ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h-6); ctx.stroke();
+        if (x > 10) ctx.fillText(f, x + 2, h - 7);
+    }
+    // Highlight current frame
+    const cx = frameToPx(currentFrame);
+    ctx.fillStyle = '#3d9bff';
+    ctx.fillRect(cx - 1, 0, 2, h);
+}
+
+function updateTrackLabels() {
+    trackLabels.innerHTML = '';
+    const colors = ['#e06a6a','#6abf6a','#3d9bff','#e8c06a','#b06aff','#6affb0'];
+    sceneObjects.forEach((obj, i) => {
+        const row = document.createElement('div');
+        row.className = 'track-label' + (obj === selectedObject ? ' selected' : '');
+        row.innerHTML = `<div class="dot" style="background:${colors[i%colors.length]}"></div><span style="overflow:hidden;text-overflow:ellipsis;max-width:70px">${obj.name||'Obj '+(i+1)}</span>`;
+        row.style.height = '22px';
+        row.addEventListener('click', () => selectObject(obj));
+        trackLabels.appendChild(row);
+    });
+}
+
+// ===================== GRAPH EDITOR =====================
+function renderGraphEditor() {
+    const ctx = graphCtx;
+    const w = graphCanvas.width, h = graphCanvas.height;
+    if (!w || !h) return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!selectedObject || !selectedObject.userData.keyframes || selectedObject.userData.keyframes.length < 2) {
+        ctx.fillStyle = '#555'; ctx.font = '11px Outfit, sans-serif';
+        ctx.fillText('Selecciona un objeto con 2+ keyframes', 20, h/2);
+        return;
+    }
+
+    const keys = selectedObject.userData.keyframes;
+    const channels = [
+        { label: 'X', color: '#e06a6a', fn: k => k.position.x },
+        { label: 'Y', color: '#6abf6a', fn: k => k.position.y },
+        { label: 'Z', color: '#3d9bff', fn: k => k.position.z },
+    ];
+
+    // Find range
+    const allVals = keys.flatMap(k => channels.map(c => c.fn(k)));
+    const minV = Math.min(...allVals) - 0.5;
+    const maxV = Math.max(...allVals) + 0.5;
+    const vRange = maxV - minV || 1;
+
+    const toX = f => frameToPx(f) * (w / trackCanvas.width);
+    const toY = v => h - ((v - minV) / vRange) * (h - 20) - 10;
+
+    // Grid lines
+    ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = 10 + i * (h - 20) / 4;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        const val = maxV - (i / 4) * vRange;
+        ctx.fillStyle = '#555'; ctx.font = '9px JetBrains Mono, monospace';
+        ctx.fillText(val.toFixed(1), 2, y - 2);
+    }
+
+    // Draw curves
+    channels.forEach(ch => {
+        ctx.strokeStyle = ch.color; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let f = 0; f <= MAX_FRAMES; f++) {
+            const tmpObj = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), scale: new THREE.Vector3(1,1,1), userData: { keyframes: keys } };
+            applyKeyframes(tmpObj, f);
+            const v = f === 0 ? selectedObject.userData.keyframes.find(k=>k.frame===0)?.position.x ?? ch.fn(keys[0]) : ch.fn({position: tmpObj.position, quaternion: tmpObj.quaternion, scale: tmpObj.scale});
+            // Re-evaluate for this channel
+            applyKeyframes(tmpObj, f);
+            const val = ch.label === 'X' ? tmpObj.position.x : ch.label === 'Y' ? tmpObj.position.y : tmpObj.position.z;
+            const x = toX(f), y = toY(val);
+            f === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Keyframe points
+        keys.forEach(k => {
+            const x = toX(k.frame), y = toY(ch.fn(k));
+            ctx.fillStyle = ch.color;
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
+            ctx.stroke();
+        });
+
+        // Label
+        ctx.fillStyle = ch.color; ctx.font = 'bold 10px Outfit, sans-serif';
+        ctx.fillText(ch.label, w - 20, channels.indexOf(ch) * 14 + 14);
+    });
+
+    // Current frame vertical line
+    ctx.strokeStyle = '#3d9bff80'; ctx.lineWidth = 1;
+    const cx = toX(currentFrame);
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+}
+
+// ===================== TIMELINE INTERACTION =====================
+function onTrackMouseDown(e) {
+    isScrubbing = true;
+    const rect = trackContainer.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    setFrame(pxToFrame(x));
+    const onMove = ev => { if (!isScrubbing) return; setFrame(pxToFrame(ev.clientX - rect.left)); };
+    const onUp = () => { isScrubbing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function onScrubberDrag(e) {
+    e.stopPropagation();
+    isScrubbing = true;
+    const rect = trackContainer.getBoundingClientRect();
+    const onMove = ev => { if (!isScrubbing) return; setFrame(pxToFrame(ev.clientX - rect.left)); };
+    const onUp = () => { isScrubbing = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function onTrackWheel(e) {
+    e.preventDefault();
+    if (e.ctrlKey) {
+        // Zoom
+        const oldZoom = trackZoom;
+        trackZoom = Math.max(0.3, Math.min(10, trackZoom * (e.deltaY < 0 ? 1.15 : 0.87)));
+    } else {
+        // Pan
+        trackViewOffset = Math.max(0, Math.min(MAX_FRAMES - 10, trackViewOffset + (e.deltaY > 0 ? 5 : -5)));
+    }
+    renderTimeline();
+}
+
+// ===================== EASING PREVIEW =====================
+function drawEasingPreview() {
+    const canvas = $('easing-preview');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width || 180, h = canvas.height || 40;
+    canvas.width = canvas.parentElement?.clientWidth || 180;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#e8c06a'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+        const t = i / 60;
+        const x = t * (w - 4) + 2;
+        const y = (1 - easeFunction(t, currentInterp)) * (h - 4) + 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+}
+
+// ===================== ADD OBJECTS =====================
+function makeObject(mesh, name, color) {
+    mesh.name = name;
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.userData = { isLayer: true, keyframes: [], color };
+    scene.add(mesh);
+    sceneObjects.push(mesh);
+    selectObject(mesh);
+    updateOutliner();
+    return mesh;
+}
+
+function addPrimitive(type) {
+    let geo, mat, color, name;
+    const colors = { box: '#e8c06a', sphere: '#6abf6a', cylinder: '#3d9bff' };
+    color = colors[type] || '#888';
+    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
+    if (type === 'box') { geo = new THREE.BoxGeometry(3, 3, 3); name = 'Cubo'; }
+    else if (type === 'sphere') { geo = new THREE.SphereGeometry(1.8, 32, 32); name = 'Esfera'; }
+    else if (type === 'cylinder') { geo = new THREE.CylinderGeometry(1.2, 1.2, 4, 32); name = 'Cilindro'; }
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(Math.random()*4-2, 2 + Math.random()*2, Math.random()*4-2);
+    makeObject(mesh, name, color);
+    notify(`📦 ${name} añadido`);
+}
+
+function addPointLight() {
+    const light = new THREE.PointLight(0xffffff, 2, 20);
+    light.position.set(0, 6, 0);
+    light.castShadow = true;
+    const helper = new THREE.PointLightHelper(light, 0.5);
+    scene.add(helper);
+    // Wrap light in a group for selection
+    const geo = new THREE.SphereGeometry(0.3, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffff88, wireframe: true });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.add(light);
+    mesh.position.set(0, 6, 0);
+    mesh.name = 'Luz Puntual';
+    mesh.userData = { isLayer: true, keyframes: [], color: '#ffff88', isLight: true, lightRef: light };
+    scene.add(mesh);
+    sceneObjects.push(mesh);
+    selectObject(mesh);
+    updateOutliner();
+    notify('💡 Luz puntual añadida');
+}
+
+function handleFileUpload(e) {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    loader.style.display = 'flex';
+    Array.from(files).forEach((file, i) => {
+        const reader = new FileReader();
+        reader.onload = ev => createImagePlane(ev.target.result, i);
+        reader.readAsDataURL(file);
+    });
+    fileInput.value = '';
+}
+
+function createImagePlane(url, offset) {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(url, tex => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const aspect = tex.image.width / tex.image.height;
+        const h = 8, w = h * aspect;
+        const mat = new THREE.MeshStandardMaterial({
+            map: tex, side: THREE.DoubleSide, transparent: true,
+            alphaTest: 0.5, roughness: 0.8, metalness: 0.1
+        });
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+        mesh.position.set(0, h/2, -offset * 3);
+        mesh.name = `Imagen ${sceneObjects.length + 1}`;
+        makeObject(mesh, mesh.name, '#3d9bff');
+        loader.style.display = 'none';
+    });
+}
+
+// ===================== DELETE =====================
+function deleteSelected() {
+    if (!selectedObject) return;
+    scene.remove(selectedObject);
+    const idx = sceneObjects.indexOf(selectedObject);
+    if (idx > -1) sceneObjects.splice(idx, 1);
+    if (selectedObject.geometry) selectedObject.geometry.dispose();
+    if (selectedObject.material) { selectedObject.material.dispose(); if (selectedObject.material.map) selectedObject.material.map.dispose(); }
+    deselectObject();
+    updateOutliner();
+    notify('🗑 Objeto eliminado');
+}
+
+// ===================== RESET TRANSFORMS =====================
+function resetPosition() { if (!selectedObject) return; selectedObject.position.set(0, selectedObject.position.y, 0); updatePropertiesPanel(); if (autoKey) addKeyframe(); }
+function resetRotation() { if (!selectedObject) return; selectedObject.rotation.set(0,0,0); updatePropertiesPanel(); if (autoKey) addKeyframe(); }
+function resetScale() { if (!selectedObject) return; selectedObject.scale.set(1,1,1); updatePropertiesPanel(); if (autoKey) addKeyframe(); }
+
+function duplicateSelected() {
+    if (!selectedObject) return;
+    const clone = selectedObject.clone();
+    clone.name = (selectedObject.name || 'Objeto') + ' copia';
+    clone.position.x += 2;
+    clone.userData = { isLayer: true, keyframes: JSON.parse(JSON.stringify(selectedObject.userData.keyframes || [])), color: selectedObject.userData.color };
+    // Fix userData keyframes (re-clone vectors)
+    clone.userData.keyframes = (selectedObject.userData.keyframes || []).map(k => ({
+        frame: k.frame, interp: k.interp,
+        position: new THREE.Vector3(k.position.x, k.position.y, k.position.z),
+        quaternion: new THREE.Quaternion(k.quaternion.x, k.quaternion.y, k.quaternion.z, k.quaternion.w),
+        scale: new THREE.Vector3(k.scale.x, k.scale.y, k.scale.z)
+    }));
+    scene.add(clone);
+    sceneObjects.push(clone);
+    selectObject(clone);
+    updateOutliner();
+    notify('⊡ Objeto duplicado');
+}
+
+// ===================== CONTEXT MENU =====================
+function onContextMenu(e) {
+    e.preventDefault();
+    ctxMenu.style.display = 'block';
+    ctxMenu.style.left = e.clientX + 'px';
+    ctxMenu.style.top = e.clientY + 'px';
+}
+
+function handleCtxAction(action) {
+    const actions = {
+        'add-kf': addKeyframe, 'del-kf': deleteKeyframeAtCurrent,
+        'duplicate': duplicateSelected, 'copy-kf': copyPose, 'paste-kf': pastePose,
+        'reset-pos': resetPosition, 'reset-rot': resetRotation, 'reset-scale': resetScale
+    };
+    if (actions[action]) actions[action]();
+}
+
+// ===================== KEYBOARD SHORTCUTS =====================
+function onKeyDown(e) {
+    if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
+    const k = e.key.toLowerCase();
+    if (k === ' ') { e.preventDefault(); togglePlay(); }
+    else if (k === 'i') addKeyframe();
+    else if (k === 'i' && e.altKey) deleteKeyframeAtCurrent();
+    else if (k === 'g') setMode('translate');
+    else if (k === 'r') setMode('rotate');
+    else if (k === 's' && !e.ctrlKey) setMode('scale');
+    else if (k === 'x' || k === 'delete') deleteSelected();
+    else if (k === 'd' && e.shiftKey) duplicateSelected();
+    else if (k === 'z') toggleWireframe();
+    else if (k === '0') toggleCameraView();
+    else if (k === 'o' && e.altKey) toggleOnionSkin();
+    else if (k === 'arrowleft') { e.shiftKey ? setFrame(0) : (e.altKey ? goPrevKeyframe() : setFrame(currentFrame - 1)); }
+    else if (k === 'arrowright') { e.shiftKey ? setFrame(MAX_FRAMES) : (e.altKey ? goNextKeyframe() : setFrame(currentFrame + 1)); }
+    else if (k === 'c' && e.ctrlKey) copyPose();
+    else if (k === 'v' && e.ctrlKey) pastePose();
+    else if (k === 'a' && e.shiftKey) { e.preventDefault(); addMenu.style.display = addMenu.style.display === 'block' ? 'none' : 'block'; }
+    else if (k === 'escape') { deselectObject(); addMenu.style.display = 'none'; ctxMenu.style.display = 'none'; }
+    else if (k === 'home') setFrame(0);
+    else if (k === 'end') setFrame(MAX_FRAMES);
+}
+
+// ===================== RENDER STILL =====================
+function renderStill() {
+    renderer.render(scene, camera);
+    const link = document.createElement('a');
+    link.download = `frame_${currentFrame}.png`;
+    link.href = renderer.domElement.toDataURL('image/png');
+    link.click();
+    notify('📸 Frame guardado');
+}
+
+// ===================== NOTIFICATION =====================
+function notify(msg) {
+    notification.textContent = msg;
+    notification.classList.add('show');
+    clearTimeout(notify._t);
+    notify._t = setTimeout(() => notification.classList.remove('show'), 1800);
+}
+
+// ===================== RESIZE =====================
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    resizeTimelineCanvas();
+    renderTimeline();
+    drawEasingPreview();
+}
+</script>
+</body>
+</html>
